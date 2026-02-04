@@ -1,0 +1,61 @@
+#!/usr/bin/env emc.pl
+#
+#    file:	bulk.esh
+#    author:	Pieter J. in 't Veld
+#    date:	July 4, 2016
+#    purpose:	Chemical input for emc.pl
+#
+#    notes:
+#    	- Create a simulation with water, alcohol, salt and a sugar
+#    	- Alternative to chemistry.esh file, containing an OPTIONS section,
+#    	  to be used with emc.pl v1.5 and up
+#    	- Allowed separators are commas and tabs, which can be used
+#    	  interchangebly
+#	- Call with
+#
+#		emc.pl bulk
+#
+#	  or (for MacOS or Linux)
+#
+#	  	./bulk.esh
+#
+#	  creates build.emc and bulk.in
+#
+
+# Options
+#
+# - Format for options:
+#
+#	option,value,...
+#
+#   options create a self-contained way of setting up a simulation
+# - Replace exisiting scripts
+# - Add mass profiles to LAMMPS input script
+# - Create a simulation with a target number of 2000 particles
+# - Use resulting density of 1 g/cc
+# - Use PCFF as force field
+
+ITEM		OPTIONS
+
+replace		true
+mass		true
+ntotal		64
+density		0.001
+field		pcff
+build_dir	.
+
+ITEM		END
+
+# Shorthand
+#
+# - Format for shorthand:
+#
+#	name,SMILES,fraction[,mol mass[,mol volume]]
+#
+#   shorthand provides a quick way of constructing a chemistry file
+
+ITEM		SHORTHAND
+
+PS		CCc1ccccc1,100
+
+ITEM		END

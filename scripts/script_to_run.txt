@@ -1,0 +1,23 @@
+DATE : 22nd Jan 2026
+
+while true; do
+  PYENV_VERSION=2.7.18 pyenv exec python polym_loop.py 2>&1 | tee polym_loop.log
+
+  if grep -q "type '.*' is not defined" polym_loop.log; then
+    PYENV_VERSION=3.11.6 pyenv exec python autofix_from_log.py --pack data.lmps --log polym_loop.log --types_script lmps2types.py
+  else
+    break
+  fi
+done
+
+DATE : 3rd Feb 2026
+
+while true; do
+  python polym_loop.py 2>&1 | tee polym_loop.log
+
+  if grep -q "type '.*' is not defined" polym_loop.log; then
+    python autofix_from_log.py --pack data.lmps --log polym_loop.log --types_script lmps2types.py
+  else
+    break
+  fi
+done
