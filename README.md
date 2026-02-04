@@ -1,9 +1,7 @@
 # emc2polymatic-toolchain
 Enhanced Monte Carlo (EMC) and Polymatic workflow streamlining for Polymer Building
-Contributors: <names..>
-# emc2polymatic-toolchain
 
-Enhanced Monte Carlo (EMC) and Polymatic workflow streamlining for polymer building.
+Contributors: <names..>
 
 ## Why this exists
 
