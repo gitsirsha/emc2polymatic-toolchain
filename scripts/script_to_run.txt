@@ -10,7 +10,7 @@ while true; do
   fi
 done
 
-DATE : 3rd Feb 2026
+DATE : 3rd Feb 2026 (using python3 version of polym_loop.py)
 
 while true; do
   python polym_loop.py 2>&1 | tee polym_loop.log

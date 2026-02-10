@@ -27,7 +27,7 @@ timestep         1.0
 run_style        verlet
 
 # Output
-group extr_ends id 1 2 3 4 5 6 7 22 23 24 25 26 27 28 52 53 54 55 57 58 59 60
+group extr_ends id # put the atomIDs to remove here..
 delete_atoms group extr_ends bond yes
 reset_atoms id sort yes
 thermo_style  custom step temp pe ke etotal epair ebond eangle edihed
