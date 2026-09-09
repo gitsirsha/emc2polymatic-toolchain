@@ -2,7 +2,7 @@
 
 ################################################################################
 #
-# autofix_from_log_improper.py
+# autofix_from_log.py
 #
 # Author: Sirsha Ganguly
 #
@@ -18,7 +18,7 @@
 #     while true; do
 #       python polym_loop.py 2>&1 | tee polym_loop.log || true
 #       if grep -Eq "type '.*' is not defined" polym_loop.log; then
-#         python autofix_from_log_improper.py \
+#         python autofix_from_log.py \
 #           --pack data.lmps \
 #           --log  polym_loop.log \
 #           --types_script lmps2types.py
@@ -65,7 +65,7 @@ EQUIV = {
     "cp0": "cp",
     "c0":  "c",
     "Lc":  "c",
-}
+} # change this according to your system
 
 PRIMARY = {
     "bond":     "Bond Coeffs",
@@ -182,7 +182,8 @@ def replace_leading_int(line, new_id, new_comment):
     m = re.match(r"^(\s*)\d+(\s+.*)$", orig)
     if not m:
         raise ValueError("Bad coeff line (no leading int): %r" % line)
-    indent = m.group(1)
+    # indent = m.group(1)
+    indent = "  "
     rest = m.group(2)
     if "#" in rest:
         before_hash, _ = rest.split("#", 1)
@@ -227,11 +228,16 @@ def parse_missing(log_text):
     return {k: v for k, v in out.items() if v}
 
 
-def patch_pack_inplace(pack_path, missing):
+def patch_pack_inplace(pack_path, missing, permuted_log="autofix_permuted.log"):
     with open(pack_path, "r") as f:
         lines = f.readlines()
 
     total_added = 0
+    # Collects entries where the parameter was found via a permutation or
+    # reversal rather than the direct canonical form ("not as is").
+    # Written to a sidecar file instead of inline in data.lmps so that
+    # Polymatic never sees the extra text when it parses type comments.
+    permuted_notes = []
 
     for kind in missing:
         labels = missing[kind]
@@ -258,10 +264,15 @@ def patch_pack_inplace(pack_path, missing):
             if comment in existing_comments:
                 continue
 
+            # Search candidates in order: direct canonical form first, then
+            # permutations (improper) or reverse (bond/angle/dihedral).
             old_type = None
-            for cand in candidates(miss, kind):
+            matched_cand = None
+            cand_list = candidates(miss, kind)
+            for cand in cand_list:
                 if cand in canon_to_old:
                     old_type = canon_to_old[cand]
+                    matched_cand = cand
                     break
             if old_type is None:
                 raise KeyError(
@@ -269,8 +280,29 @@ def patch_pack_inplace(pack_path, missing):
                     "existing parameter entry." % (kind, miss, canon_label(miss))
                 )
 
+            # If the match was found via a permutation or reversal (not the
+            # direct canonical form), record it in the sidecar log rather than
+            # modifying the comment in data.lmps — Polymatic parses those
+            # comments to identify types, so any extra text would break it.
+            # Examples of "not as is" matches:
+            #   bond/angle:  a,b,c matched as c,b,a
+            #   dihedral:    a,b,c,d matched as d,c,b,a
+            #   improper:    Lna,c1,cp0,hc → canonical na,c,cp,hc, but
+            #                data file has hc,c,na,cp (permuted center-fixed)
+            # Record the permutation index (position in cand_list) so that
+            # swap_permuted_coeffs.py can apply the exact coefficient remap
+            # for cross-term sections without any ambiguity.
+            # new_type is filled in below once next_id is consumed.
+            cand_idx = cand_list.index(matched_cand)
+
             new_type = next_id
             next_id += 1
+
+            if cand_idx != 0:
+                permuted_notes.append(
+                    "kind=%s new_type=%d cand_idx=%d label=%r matched=%r"
+                    % (kind, new_type, cand_idx, miss, matched_cand)
+                )
 
             for header in GROUPS[kind]:
                 sec2 = find_section(lines, header)
@@ -293,6 +325,12 @@ def patch_pack_inplace(pack_path, missing):
     with open(pack_path, "w") as f:
         f.writelines(lines)
 
+    if permuted_notes:
+        with open(permuted_log, "a") as f:
+            f.write("\n".join(permuted_notes) + "\n")
+        print("[autofix] %d permutation/reversal match(es) logged to %s"
+              % (len(permuted_notes), permuted_log))
+
     return total_added
 
 
@@ -300,9 +338,10 @@ def main():
     ap = argparse.ArgumentParser(
         description="Auto-patch missing LAMMPS type errors from a Polymatic log."
     )
-    ap.add_argument("--pack",         default="data.lmps",    help="LAMMPS data file to patch")
-    ap.add_argument("--log",          required=True,           help="Polymatic log file to parse")
-    ap.add_argument("--types_script", default="lmps2types.py", help="Script to regenerate types.txt")
+    ap.add_argument("--pack",         default="data.lmps",           help="LAMMPS data file to patch")
+    ap.add_argument("--log",          required=True,                  help="Polymatic log file to parse")
+    ap.add_argument("--types_script", default="lmps2types.py",        help="Script to regenerate types.txt")
+    ap.add_argument("--permuted_log", default="autofix_permuted.log", help="Sidecar log for permutation/reversal matches")
     args = ap.parse_args()
 
     with open(args.log, "r") as f:
@@ -320,7 +359,7 @@ def main():
         shutil.copy2(args.pack, bak)
         print("[autofix] Backup created: %s" % bak)
 
-    added = patch_pack_inplace(args.pack, missing)
+    added = patch_pack_inplace(args.pack, missing, permuted_log=args.permuted_log)
     print("[autofix] Added %d new type(s) to %s. Kinds patched: %s"
           % (added, args.pack, list(missing.keys())))
 
